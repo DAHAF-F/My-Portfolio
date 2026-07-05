@@ -15,47 +15,97 @@
         .badge-stage {
             min-height: 100vh;
             display: flex;
-            flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             background: radial-gradient(ellipse 80% 60% at 50% 20%, #161616 0%, #000000 70%);
             position: relative;
             overflow: hidden;
-            padding: 6rem 1.5rem 3rem;
+            padding: 9rem 6vw 4rem;
+            gap: 3rem;
         }
 
-        .badge-stage h2 {
+        .badge-intro {
+            max-width: 460px;
+        }
+
+        .badge-kicker {
+            color: #caa356;
+            font-size: 0.72rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            margin-bottom: 0.9rem;
+        }
+
+        .badge-intro h2 {
             font-family: 'Playfair Display', serif;
             color: #f2f2f2;
             font-size: clamp(1.8rem, 4vw, 2.6rem);
-            text-align: center;
-            margin-bottom: 0.4rem;
+            margin-bottom: 1.1rem;
         }
 
-        .badge-stage p.hint {
-            color: #777;
-            font-size: 0.85rem;
-            text-align: center;
-            margin-bottom: 2rem;
-            letter-spacing: 0.02em;
+        .badge-intro .intro-text {
+            font-family: 'DM Sans', sans-serif;
+            color: #a8a8a8;
+            font-size: 0.98rem;
+            line-height: 1.75;
+            margin-bottom: 2.2rem;
+        }
+
+        .unlock-btn {
+            font-family: 'DM Sans', sans-serif;
+            background: transparent;
+            border: 1px solid #caa356;
+            color: #f2f2f2;
+            padding: 0.85rem 1.9rem;
+            font-size: 0.76rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: background 0.3s ease, color 0.3s ease, opacity 0.3s ease;
+        }
+
+        .unlock-btn:hover {
+            background: #caa356;
+            color: #111;
+        }
+
+        .unlock-btn.is-unlocked {
+            opacity: 0.7;
         }
 
         #badgeCanvas {
-            touch-action: none;
-            cursor: grab;
-            max-width: 100%;
+            position: fixed;
+            top: 0;
+            right: 22px;
+            pointer-events: none;
+            z-index: 40;
         }
 
-        #badgeCanvas:active {
+        .badge-hit-area {
+            position: fixed;
+            width: 150px;
+            height: 200px;
+            z-index: 41;
+            cursor: grab;
+            display: none;
+            touch-action: none;
+        }
+
+        .badge-hit-area.active {
             cursor: grabbing;
         }
 
-        .badge-footer-note {
-            color: #555;
-            font-size: 0.72rem;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-            margin-top: 1.5rem;
+        @media (max-width: 760px) {
+            .badge-stage {
+                justify-content: center;
+                text-align: center;
+                padding-top: 7.5rem;
+            }
+
+            .badge-intro {
+                max-width: 100%;
+            }
         }
     </style>
 </head>
@@ -83,12 +133,24 @@
 
     <main>
         <section class="badge-stage">
-            <h2>Pull the Badge</h2>
-            <p class="hint">Grab it and drag down — let go and it snaps back</p>
-            <canvas id="badgeCanvas" width="360" height="320"></canvas>
-            <p class="badge-footer-note">Local SEO Specialist &middot; RankViz Company</p>
+            <div class="badge-intro">
+                <p class="badge-kicker">Local SEO Specialist &middot; RankViz Company</p>
+                <h2>Pull the Badge</h2>
+                <p class="intro-text">
+                    I'm Fahad Hamza, a Local SEO Specialist at RankViz, where I help small and
+                    mid-sized businesses show up where it counts and turn nearby searches into
+                    real customers. My day-to-day mixes technical SEO, Google Business Profile
+                    optimization, and content strategy to build visibility that actually holds
+                    up over time. When I'm not chasing rankings, I'm usually tinkering with a
+                    small side project — like this badge.
+                </p>
+                <button id="unlockBtn" class="unlock-btn" type="button">Unlock Badge</button>
+            </div>
         </section>
     </main>
+
+    <canvas id="badgeCanvas" width="280" height="200"></canvas>
+    <div id="badgeHitArea" class="badge-hit-area" aria-hidden="true"></div>
 
     <button class="back-to-top" id="backToTop" aria-label="Back to top">
         <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
@@ -103,24 +165,50 @@
         (function () {
             const canvas = document.getElementById('badgeCanvas');
             const ctx = canvas.getContext('2d');
-            const W = canvas.width, H = canvas.height;
-            const anchor = { x: W / 2, y: 28 };
-            const segCount = 8;
-            const restSeg = 9;
+            const hitArea = document.getElementById('badgeHitArea');
+            const unlockBtn = document.getElementById('unlockBtn');
+
+            const segCount = 10;
+            const anchor = { x: 0, y: 22 };
             const points = [];
             for (let i = 0; i < segCount; i++) {
-                points.push({ x: anchor.x, y: anchor.y + i * restSeg, vx: 0, vy: 0 });
+                points.push({ x: 0, y: anchor.y, vx: 0, vy: 0 });
             }
+
             let dragging = false;
             const gravity = 0.45;
             const damping = 0.9;
-            const maxStretch = restSeg * 2.6;
-            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            // Rest length per rope segment. Starts collapsed (badge tucked away)
+            // and animates outward toward targetRestSeg once unlocked.
+            const collapsedSeg = 1;
+            let targetRestSeg = 40;
+            let currentRestSeg = collapsedSeg;
+            let progress = 0;        // 0 = tucked away, 1 = fully dropped
+            let progressTarget = 0;
+            let unlocked = false;
+
+            const cardW = 128, cardH = 150, photoSize = 96, border = 6;
+            const cardOffsetY = 20; // distance from last rope point to top of card
 
             const photo = new Image();
             let photoReady = false;
+            let photoFailed = false;
             photo.onload = () => { photoReady = true; };
+            photo.onerror = () => { photoFailed = true; };
             photo.src = 'badge-photo.jpg';
+
+            function resizeCanvas() {
+                canvas.width = 280;
+                const dropTarget = window.innerHeight * 0.52;
+                const available = dropTarget - anchor.y - cardOffsetY - cardH / 2;
+                targetRestSeg = Math.max(18, Math.min(available / segCount, 48));
+                canvas.height = Math.max(window.innerHeight * 0.75, anchor.y + targetRestSeg * segCount + cardOffsetY + cardH + 60);
+                anchor.x = canvas.width - 60;
+                for (let i = 0; i < points.length; i++) {
+                    points[i].x = anchor.x;
+                }
+            }
 
             function update() {
                 for (let i = 1; i < points.length; i++) {
@@ -134,12 +222,13 @@
                 }
                 points[0].x = anchor.x; points[0].y = anchor.y;
 
+                const maxStretch = currentRestSeg * 2.6;
                 for (let iter = 0; iter < 6; iter++) {
                     for (let i = 1; i < points.length; i++) {
                         const a = points[i - 1], b = points[i];
                         const dx = b.x - a.x, dy = b.y - a.y;
                         const dist = Math.hypot(dx, dy) || 0.0001;
-                        const limit = (dragging && i === points.length - 1) ? maxStretch : restSeg;
+                        const limit = (dragging && i === points.length - 1) ? maxStretch : currentRestSeg;
                         const diff = (dist - limit) / dist;
                         const ox = dx * diff * 0.5, oy = dy * diff * 0.5;
                         if (i !== 1) { a.x += ox; a.y += oy; }
@@ -212,12 +301,45 @@
                 ctx.restore();
             }
 
+            function drawAvatarPlaceholder(size) {
+                const g = ctx.createLinearGradient(-size / 2, -size / 2, size / 2, size / 2);
+                g.addColorStop(0, '#2a2a2a');
+                g.addColorStop(1, '#111111');
+                ctx.fillStyle = g;
+                ctx.fillRect(-size / 2, -size / 2, size, size);
+                ctx.fillStyle = '#caa356';
+                ctx.font = '600 ' + Math.round(size * 0.36) + 'px "Playfair Display", serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('FH', 0, size * 0.04);
+            }
+
+            // Draws the photo cropped to fill the target square (like CSS
+            // object-fit: cover) instead of stretching it out of ratio.
+            function drawPhotoCover(size) {
+                const iw = photo.naturalWidth, ih = photo.naturalHeight;
+                const srcRatio = iw / ih;
+                let sx, sy, sw, sh;
+                if (srcRatio > 1) {
+                    sh = ih; sw = ih;
+                    sx = (iw - sw) / 2; sy = 0;
+                } else {
+                    sw = iw; sh = iw;
+                    sx = 0; sy = (ih - sh) / 2;
+                }
+                ctx.drawImage(photo, sx, sy, sw, sh, -size / 2, -size / 2, size, size);
+            }
+
             function draw() {
-                const bg = ctx.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, H * 0.75);
-                bg.addColorStop(0, '#141414');
-                bg.addColorStop(1, '#000000');
-                ctx.fillStyle = bg;
-                ctx.fillRect(0, 0, W, H);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                if (progress < 0.015) {
+                    requestAnimationFrame(loop);
+                    return;
+                }
+
+                ctx.save();
+                ctx.globalAlpha = Math.min(1, progress * 1.6);
 
                 drawCord();
                 drawHardware();
@@ -239,9 +361,7 @@
                 ctx.lineWidth = 1;
                 ctx.stroke();
 
-                ctx.translate(0, 20);
-
-                const cardW = 128, cardH = 150, photoSize = 96, border = 6;
+                ctx.translate(0, cardOffsetY);
 
                 ctx.fillStyle = '#0a0a0a';
                 ctx.strokeStyle = '#2a2a2a';
@@ -257,11 +377,11 @@
                 ctx.save();
                 roundRect(-photoSize / 2, 12 + border, photoSize, photoSize, 3);
                 ctx.clip();
-                if (photoReady) {
-                    ctx.drawImage(photo, -photoSize / 2, 12 + border, photoSize, photoSize);
+                ctx.translate(0, 12 + border + photoSize / 2);
+                if (photoReady && !photoFailed) {
+                    drawPhotoCover(photoSize);
                 } else {
-                    ctx.fillStyle = '#2a2a2a';
-                    ctx.fillRect(-photoSize / 2, 12 + border, photoSize, photoSize);
+                    drawAvatarPlaceholder(photoSize);
                 }
                 ctx.restore();
 
@@ -269,25 +389,43 @@
                 ctx.font = '600 12px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('FAHAD HAMZA', 0, 12 + border * 2 + photoSize + 18);
+                ctx.fillText('FAHAD HAMZA', 0, border * 2 + photoSize + 18);
+                ctx.restore();
                 ctx.restore();
 
+                positionHitArea(last);
                 requestAnimationFrame(loop);
             }
 
-            function loop() { update(); draw(); }
+            function positionHitArea(last) {
+                const rect = canvas.getBoundingClientRect();
+                const centerX = rect.left + last.x;
+                const centerY = rect.top + last.y + cardOffsetY + cardH / 2;
+                hitArea.style.left = (centerX - hitArea.offsetWidth / 2) + 'px';
+                hitArea.style.top = (centerY - hitArea.offsetHeight / 2) + 'px';
+                hitArea.style.display = progress > 0.55 ? 'block' : 'none';
+            }
+
+            function loop() {
+                progress += (progressTarget - progress) * 0.07;
+                if (Math.abs(progressTarget - progress) < 0.002) progress = progressTarget;
+                currentRestSeg = collapsedSeg + (targetRestSeg - collapsedSeg) * progress;
+                update();
+                draw();
+            }
 
             function getPos(e) {
                 const rect = canvas.getBoundingClientRect();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                return {
-                    x: (clientX - rect.left) * (W / rect.width),
-                    y: (clientY - rect.top) * (H / rect.height)
-                };
+                return { x: clientX - rect.left, y: clientY - rect.top };
             }
 
-            canvas.addEventListener('pointerdown', () => { dragging = true; });
+            hitArea.addEventListener('pointerdown', (e) => {
+                dragging = true;
+                hitArea.classList.add('active');
+                e.preventDefault();
+            });
             window.addEventListener('pointermove', (e) => {
                 if (!dragging) return;
                 const pos = getPos(e);
@@ -295,13 +433,21 @@
                 last.x = pos.x; last.y = pos.y;
                 last.vx = 0; last.vy = 0;
             });
-            window.addEventListener('pointerup', () => { dragging = false; });
+            window.addEventListener('pointerup', () => {
+                dragging = false;
+                hitArea.classList.remove('active');
+            });
 
-            if (reducedMotion) {
-                draw();
-            } else {
-                loop();
-            }
+            unlockBtn.addEventListener('click', () => {
+                unlocked = !unlocked;
+                progressTarget = unlocked ? 1 : 0;
+                unlockBtn.textContent = unlocked ? 'Tuck It Away' : 'Unlock Badge';
+                unlockBtn.classList.toggle('is-unlocked', unlocked);
+            });
+
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+            loop();
         })();
     </script>
 </body>
