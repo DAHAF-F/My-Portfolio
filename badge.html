@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Badge - Fahad Hamza</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .badge-stage {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(ellipse 80% 60% at 50% 20%, #161616 0%, #000000 70%);
+            position: relative;
+            overflow: hidden;
+            padding: 6rem 1.5rem 3rem;
+        }
+
+        .badge-stage h2 {
+            font-family: 'Playfair Display', serif;
+            color: #f2f2f2;
+            font-size: clamp(1.8rem, 4vw, 2.6rem);
+            text-align: center;
+            margin-bottom: 0.4rem;
+        }
+
+        .badge-stage p.hint {
+            color: #777;
+            font-size: 0.85rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            letter-spacing: 0.02em;
+        }
+
+        #badgeCanvas {
+            touch-action: none;
+            cursor: grab;
+            max-width: 100%;
+        }
+
+        #badgeCanvas:active {
+            cursor: grabbing;
+        }
+
+        .badge-footer-note {
+            color: #555;
+            font-size: 0.72rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            margin-top: 1.5rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="scroll-progress" id="scrollProgress"></div>
+    <div class="curtain" id="curtain"><span>F. HAMZA</span></div>
+
+    <header id="siteHeader">
+        <nav>
+            <div class="nav-container">
+                <a href="index.html#home" style="text-decoration:none;"><h1>Fahad <span>Hamza</span></h1></a>
+                <ul>
+                    <li><a href="index.html#home">Home</a></li>
+                    <li><a href="index.html#about">About</a></li>
+                    <li><a href="index.html#skills">Skills</a></li>
+                    <li><a href="experience.html">Experience</a></li>
+                    <li><a href="index.html#education">Education</a></li>
+                    <li><a href="badge.html" class="active">Badge</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <section class="badge-stage">
+            <h2>Pull the Badge</h2>
+            <p class="hint">Grab it and drag down — let go and it snaps back</p>
+            <canvas id="badgeCanvas" width="360" height="320"></canvas>
+            <p class="badge-footer-note">Local SEO Specialist &middot; RankViz Company</p>
+        </section>
+    </main>
+
+    <button class="back-to-top" id="backToTop" aria-label="Back to top">
+        <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
+    </button>
+
+    <footer>
+        <p>&copy; 2026 Fahad Hamza. All rights reserved.</p>
+    </footer>
+
+    <script src="main.js"></script>
+    <script>
+        (function () {
+            const canvas = document.getElementById('badgeCanvas');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width, H = canvas.height;
+            const anchor = { x: W / 2, y: 28 };
+            const segCount = 8;
+            const restSeg = 9;
+            const points = [];
+            for (let i = 0; i < segCount; i++) {
+                points.push({ x: anchor.x, y: anchor.y + i * restSeg, vx: 0, vy: 0 });
+            }
+            let dragging = false;
+            const gravity = 0.45;
+            const damping = 0.9;
+            const maxStretch = restSeg * 2.6;
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            const photo = new Image();
+            let photoReady = false;
+            photo.onload = () => { photoReady = true; };
+            photo.src = 'badge-photo.jpg';
+
+            function update() {
+                for (let i = 1; i < points.length; i++) {
+                    if (dragging && i === points.length - 1) continue;
+                    const p = points[i];
+                    p.vy += gravity;
+                    p.vx *= damping;
+                    p.vy *= damping;
+                    p.x += p.vx;
+                    p.y += p.vy;
+                }
+                points[0].x = anchor.x; points[0].y = anchor.y;
+
+                for (let iter = 0; iter < 6; iter++) {
+                    for (let i = 1; i < points.length; i++) {
+                        const a = points[i - 1], b = points[i];
+                        const dx = b.x - a.x, dy = b.y - a.y;
+                        const dist = Math.hypot(dx, dy) || 0.0001;
+                        const limit = (dragging && i === points.length - 1) ? maxStretch : restSeg;
+                        const diff = (dist - limit) / dist;
+                        const ox = dx * diff * 0.5, oy = dy * diff * 0.5;
+                        if (i !== 1) { a.x += ox; a.y += oy; }
+                        if (!(dragging && i === points.length - 1)) { b.x -= ox; b.y -= oy; }
+                    }
+                    points[0].x = anchor.x; points[0].y = anchor.y;
+                }
+            }
+
+            function roundRect(x, y, w, h, r) {
+                ctx.beginPath();
+                ctx.moveTo(x + r, y);
+                ctx.arcTo(x + w, y, x + w, y + h, r);
+                ctx.arcTo(x + w, y + h, x, y + h, r);
+                ctx.arcTo(x, y + h, x, y, r);
+                ctx.arcTo(x, y, x + w, y, r);
+                ctx.closePath();
+            }
+
+            function drawCord() {
+                ctx.lineCap = 'round';
+                const grad = ctx.createLinearGradient(0, anchor.y, 0, points[points.length - 1].y + 20);
+                grad.addColorStop(0, '#e8e8e8');
+                grad.addColorStop(0.5, '#4a4a4a');
+                grad.addColorStop(1, '#1c1c1c');
+                ctx.strokeStyle = grad;
+                ctx.lineWidth = 7;
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+                for (let i = 1; i < points.length - 1; i++) {
+                    const midX = (points[i].x + points[i + 1].x) / 2;
+                    const midY = (points[i].y + points[i + 1].y) / 2;
+                    ctx.quadraticCurveTo(points[i].x, points[i].y, midX, midY);
+                }
+                ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+                ctx.stroke();
+
+                let dist = 0;
+                for (let i = 1; i < points.length; i++) {
+                    const a = points[i - 1], b = points[i];
+                    const dx = b.x - a.x, dy = b.y - a.y;
+                    const len = Math.hypot(dx, dy);
+                    const nx = -dy / len, ny = dx / len;
+                    const steps = Math.max(1, Math.round(len / 6));
+                    for (let s = 0; s < steps; s++) {
+                        const t = s / steps;
+                        const px = a.x + dx * t, py = a.y + dy * t;
+                        dist += len / steps;
+                        const flip = Math.floor(dist / 9) % 2 === 0;
+                        ctx.strokeStyle = flip ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.4)';
+                        ctx.lineWidth = 2.2;
+                        ctx.beginPath();
+                        ctx.moveTo(px - nx * 3, py - ny * 3);
+                        ctx.lineTo(px + nx * 3, py + ny * 3);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            function drawHardware() {
+                ctx.save();
+                ctx.translate(anchor.x, anchor.y - 10);
+                const g = ctx.createLinearGradient(-10, 0, 10, 0);
+                g.addColorStop(0, '#888'); g.addColorStop(0.5, '#f2f2f2'); g.addColorStop(1, '#666');
+                ctx.strokeStyle = g;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 9, 11, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            function draw() {
+                const bg = ctx.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, H * 0.75);
+                bg.addColorStop(0, '#141414');
+                bg.addColorStop(1, '#000000');
+                ctx.fillStyle = bg;
+                ctx.fillRect(0, 0, W, H);
+
+                drawCord();
+                drawHardware();
+
+                const last = points[points.length - 1];
+                const prev = points[points.length - 2];
+                const angle = Math.atan2(last.y - prev.y, last.x - prev.x) - Math.PI / 2;
+
+                ctx.save();
+                ctx.translate(last.x, last.y);
+                ctx.rotate(angle * 0.25);
+
+                const clipGrad = ctx.createLinearGradient(-8, 0, 8, 0);
+                clipGrad.addColorStop(0, '#777'); clipGrad.addColorStop(0.5, '#eee'); clipGrad.addColorStop(1, '#555');
+                ctx.fillStyle = clipGrad;
+                roundRect(-7, -2, 14, 20, 4);
+                ctx.fill();
+                ctx.strokeStyle = '#222';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.translate(0, 20);
+
+                const cardW = 128, cardH = 150, photoSize = 96, border = 6;
+
+                ctx.fillStyle = '#0a0a0a';
+                ctx.strokeStyle = '#2a2a2a';
+                ctx.lineWidth = 1.5;
+                roundRect(-cardW / 2, 0, cardW, cardH, 12);
+                ctx.fill(); ctx.stroke();
+
+                const frameSize = photoSize + border * 2;
+                ctx.fillStyle = '#f4f4f4';
+                roundRect(-frameSize / 2, 12, frameSize, frameSize, 6);
+                ctx.fill();
+
+                ctx.save();
+                roundRect(-photoSize / 2, 12 + border, photoSize, photoSize, 3);
+                ctx.clip();
+                if (photoReady) {
+                    ctx.drawImage(photo, -photoSize / 2, 12 + border, photoSize, photoSize);
+                } else {
+                    ctx.fillStyle = '#2a2a2a';
+                    ctx.fillRect(-photoSize / 2, 12 + border, photoSize, photoSize);
+                }
+                ctx.restore();
+
+                ctx.fillStyle = '#f2f2f2';
+                ctx.font = '600 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('FAHAD HAMZA', 0, 12 + border * 2 + photoSize + 18);
+                ctx.restore();
+
+                requestAnimationFrame(loop);
+            }
+
+            function loop() { update(); draw(); }
+
+            function getPos(e) {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return {
+                    x: (clientX - rect.left) * (W / rect.width),
+                    y: (clientY - rect.top) * (H / rect.height)
+                };
+            }
+
+            canvas.addEventListener('pointerdown', () => { dragging = true; });
+            window.addEventListener('pointermove', (e) => {
+                if (!dragging) return;
+                const pos = getPos(e);
+                const last = points[points.length - 1];
+                last.x = pos.x; last.y = pos.y;
+                last.vx = 0; last.vy = 0;
+            });
+            window.addEventListener('pointerup', () => { dragging = false; });
+
+            if (reducedMotion) {
+                draw();
+            } else {
+                loop();
+            }
+        })();
+    </script>
+</body>
+
+</html>
