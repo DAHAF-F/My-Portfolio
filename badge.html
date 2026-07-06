@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="styles.css">
     <style>
         .badge-stage {
-            min-height: 160vh;
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: flex-start;
@@ -25,7 +25,7 @@
         }
 
         .badge-intro {
-            max-width: 499px;
+            max-width: 460px;
         }
 
         .badge-kicker {
@@ -137,7 +137,7 @@
                 <p class="badge-kicker">Local SEO Specialist &middot; RankViz Company</p>
                 <h2>Pull the Badge</h2>
                 <p class="intro-text">
-                    I'm Fahad, a Local SEO Specialist at RankViz, where I help small and
+                    I'm Fahad Hamza, a Local SEO Specialist at RankViz, where I help small and
                     mid-sized businesses show up where it counts and turn nearby searches into
                     real customers. My day-to-day mixes technical SEO, Google Business Profile
                     optimization, and content strategy to build visibility that actually holds
@@ -200,7 +200,7 @@
 
             function resizeCanvas() {
                 canvas.width = window.innerWidth;
-                const dropTarget = window.innerHeight * 0.45;
+                const dropTarget = window.innerHeight * 0.52;
                 const available = dropTarget - anchor.y - cardOffsetY - cardH / 2;
                 targetRestSeg = Math.max(18, Math.min(available / segCount, 48));
                 // Canvas must be tall enough to cover the full stretched-out drag
@@ -208,10 +208,10 @@
                 // badge down past the canvas's own height clips it out of view.
                 const maxStretchTotal = targetRestSeg * 2.6 * segCount;
                 canvas.height = Math.max(
-                    window.innerHeight + 340,
+                    window.innerHeight + 300,
                     anchor.y + maxStretchTotal + cardOffsetY + cardH + 80
                 );
-                anchor.x = canvas.width - 160;
+                anchor.x = canvas.width - 130;
                 for (let i = 0; i < points.length; i++) {
                     points[i].x = anchor.x;
                 }
